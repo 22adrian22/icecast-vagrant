@@ -1,6 +1,6 @@
 # **Servidor de Streaming de Audio con Icecast2 e Ices2** 🎧
 
-Este proyecto documenta la configuración de un servidor de streaming de audio utilizando **Icecast2** y **Ices2** en una máquina virtual Vagrant con Debian Bookworm. Además, se incluyen instrucciones detalladas para obtener y preparar archivos de audio en formato `.ogg` para la lista de reproducción.
+Este proyecto documenta la configuración de un servidor de streaming de audio utilizando **Icecast2** y **Ices2** en una máquina virtual Vagrant con Debian Bookworm. Además, se incluyen instrucciones detalladas para obtener y preparar archivos de audio en formato `.ogg` para la lista de reproducción. La configuración puede realizarse de dos formas: **manualmente** o **automáticamente** mediante la ejecución de un playbook de Ansible (`playbook.yml`).
 
 ---
 
@@ -13,6 +13,7 @@ Este proyecto documenta la configuración de un servidor de streaming de audio u
 5. Preparación de Archivos de Audio
 6. Automatización del Servicio Ices2
 7. Prueba del Servidor de Streaming
+8. Automatización con Playbook de Ansible
 
 ---
 
@@ -23,6 +24,7 @@ Antes de comenzar, asegúrate de tener instalados los siguientes componentes en 
 - **Vagrant**: [Descargar e instalar Vagrant](https://www.vagrantup.com/downloads).
 - **VirtualBox**: [Descargar e instalar VirtualBox](https://www.virtualbox.org/wiki/Downloads).
 - **Reproductor VLC**: Para probar el streaming. [Descargar VLC](https://www.videolan.org/vlc/).
+- **Ansible**: Para ejecutar el playbook. [Instalar Ansible](https://docs.ansible.com/ansible/latest/installation_guide/index.html).
 
 ---
 
@@ -63,7 +65,241 @@ Antes de comenzar, asegúrate de tener instalados los siguientes componentes en 
 
 ---
 
-## **Instalación y Configuración de Icecast2** 🎛️
+## **Automatización con Playbook de Ansible** 🤖
+
+El playbook de Ansible (`playbook.yml`) automatiza todas las tareas necesarias para configurar el servidor de streaming. A continuación, se describe cada tarea realizada por el playbook:
+
+### **Tareas del Playbook**
+
+1. **Actualizar el sistema**:
+   - Actualiza los paquetes del sistema para asegurar que todo esté al día.
+   ```yaml
+   - name: Actualizar el sistema
+     apt:
+       update_cache: yes
+       upgrade: dist
+     tags: update
+   ```
+
+2. **Instalar Icecast2**:
+   - Instala Icecast2 y maneja la pregunta de configuración de clave.
+   ```yaml
+   - name: Instalar Icecast2
+     debconf:
+       name: icecast2
+       question: icecast2/configure
+       value: "false"
+       vtype: boolean
+     tags: icecast2
+
+   - name: Instalar Icecast2 (paquete)
+     apt:
+       name: icecast2
+       state: present
+     tags: icecast2
+   ```
+
+3. **Configurar Icecast2**:
+   - Copia los archivos de configuración de Icecast2 (`icecast.xml` y `icecast2`) desde la máquina local a la máquina virtual.
+   ```yaml
+   - name: Copiar icecast.xml
+     copy:
+       src: /vagrant/icecast.xml
+       dest: /etc/icecast2/icecast.xml
+       owner: root
+       group: root
+       mode: '0644'
+       force: yes
+       remote_src: yes
+     tags: icecast2
+
+   - name: Copiar icecast2 (default)
+     copy:
+       src: /vagrant/icecast2
+       dest: /etc/default/icecast2
+       owner: root
+       group: root
+       mode: '0644'
+       force: yes
+       remote_src: yes
+     tags: icecast2
+   ```
+
+4. **Iniciar y habilitar el servicio Icecast2**:
+   - Inicia y habilita el servicio Icecast2 para que se ejecute automáticamente al iniciar el sistema.
+   ```yaml
+   - name: Iniciar servicio Icecast2
+     systemd:
+       name: icecast2
+       state: started
+       enabled: yes
+     tags: icecast2
+   ```
+
+5. **Instalar Ices2 y Vorbis Tools**:
+   - Instala Ices2 y las herramientas necesarias para convertir archivos de audio.
+   ```yaml
+   - name: Instalar Ices2 y Vorbis Tools
+     apt:
+       name:
+         - ices2
+         - vorbis-tools
+       state: present
+     tags: ices2
+   ```
+
+6. **Configurar Ices2**:
+   - Crea el directorio de configuración de Ices2 y copia el archivo de configuración `ices-playlist.xml`.
+   ```yaml
+   - name: Crear directorio /etc/ices2
+     file:
+       path: /etc/ices2
+       state: directory
+       owner: root
+       group: root
+       mode: '0755'
+     tags: ices2
+
+   - name: Copiar ices-playlist.xml
+     copy:
+       src: /vagrant/ices-playlist.xml
+       dest: /etc/ices2/ices-playlist.xml
+       owner: root
+       group: root
+       mode: '0644'
+       force: yes
+       remote_src: yes
+     tags: ices2
+   ```
+
+7. **Preparar archivos de audio**:
+   - Crea el directorio de canciones y copia los archivos `.ogg` desde la máquina local a la máquina virtual.
+   ```yaml
+   - name: Crear directorio de canciones
+     file:
+       path: /home/vagrant/canciones
+       state: directory
+       owner: vagrant
+       group: vagrant
+       mode: '0755'
+     tags: canciones
+
+   - name: Copiar archivo1.ogg
+     copy:
+       src: /vagrant/archivo1.ogg
+       dest: /home/vagrant/canciones/archivo1.ogg
+       owner: vagrant
+       group: vagrant
+       mode: '0644'
+       force: yes
+       remote_src: yes
+     tags: canciones
+
+   - name: Copiar archivo2.ogg
+     copy:
+       src: /vagrant/archivo2.ogg
+       dest: /home/vagrant/canciones/archivo2.ogg
+       owner: vagrant
+       group: vagrant
+       mode: '0644'
+       force: yes
+       remote_src: yes
+     tags: canciones
+
+   - name: Copiar archivo3.ogg
+     copy:
+       src: /vagrant/archivo3.ogg
+       dest: /home/vagrant/canciones/archivo3.ogg
+       owner: vagrant
+       group: vagrant
+       mode: '0644'
+       force: yes
+       remote_src: yes
+     tags: canciones
+
+   - name: Copiar archivo4.ogg
+     copy:
+       src: /vagrant/archivo4.ogg
+       dest: /home/vagrant/canciones/archivo4.ogg
+       owner: vagrant
+       group: vagrant
+       mode: '0644'
+       force: yes
+       remote_src: yes
+     tags: canciones
+   ```
+
+8. **Generar lista de reproducción**:
+   - Genera la lista de reproducción a partir de los archivos `.ogg` en el directorio de canciones.
+   ```yaml
+   - name: Generar lista de reproducción
+     shell: find /home/vagrant/canciones -name "*.ogg" > /home/vagrant/canciones/lista.txt
+     args:
+       creates: /home/vagrant/canciones/lista.txt
+     tags: canciones
+   ```
+
+9. **Configurar y habilitar el servicio Ices2**:
+   - Copia el archivo de servicio de Ices2, recarga systemd y habilita el servicio.
+   ```yaml
+   - name: Copiar ices2.service
+     copy:
+       src: /vagrant/ices2.service
+       dest: /etc/systemd/system/ices2.service
+       owner: root
+       group: root
+       mode: '0644'
+       force: yes
+       remote_src: yes
+     tags: ices2
+
+   - name: Recargar systemd
+     systemd:
+       daemon_reload: yes
+     tags: ices2
+
+   - name: Iniciar servicio Ices2
+     systemd:
+       name: ices2
+       state: started
+       enabled: yes
+     tags: ices2
+   ```
+
+### **Ejecución del Playbook**
+
+Para ejecutar el playbook, asegúrate de tener Ansible instalado y ejecuta el siguiente comando desde el directorio del proyecto:
+
+```bash
+ansible-playbook -i inventory playbook.yml
+```
+
+**Nota:** Si al ejecutar el playbook aparece el siguiente error:
+
+```bash
+user@user-pc:~/Desktop/icecast-vagrant$ ansible-playbook -i inventory.yml playbook.yml 
+
+PLAY [Configurar servidor de streaming con Icecast2 e Ices2] *************************************************************ssh vagrant@192.168.57.101 -i .vagrant/machines/default/virtualbox/private_key****************
+
+TASK [Gathering Facts] *******************************************************************************************************************
+fatal: [192.168.57.101]: UNREACHABLE! => {"changed": false, "msg": "Failed to connect to the host via ssh: @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\r\n@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @\r\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\r\nIT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!\r\nSomeone could be eavesdropping on you right now (man-in-the-middle attack)!\r\nIt is also possible that a host key has just been changed.\r\nThe fingerprint for the ED25519 key sent by the remote host is\nSHA256:Aag6y/6TqR72tD1Rtw8CvJc/mDIQZ59Rjgp8FiBFulk.\r\nPlease contact your system administrator.\r\nAdd correct host key in /home/user/.ssh/known_hosts to get rid of this message.\r\nOffending ECDSA key in /home/user/.ssh/known_hosts:9\r\n  remove with:\r\n  ssh-keygen -f '/home/user/.ssh/known_hosts' -R '192.168.57.101'\r\nHost key for 192.168.57.101 has changed and you have requested strict checking.\r\nHost key verification failed.", "unreachable": true}
+
+PLAY RECAP *******************************************************************************************************************************
+192.168.57.101             : ok=0    changed=0    unreachable=1    failed=0    skipped=0    rescued=0    ignored==0
+```
+
+Este error ocurre porque la clave SSH del host ha cambiado, lo que puede suceder si la máquina virtual ha sido recreada o si su configuración de red ha cambiado. Para solucionar este problema, debes eliminar la clave antigua del archivo `known_hosts` y volver a conectarte al host. Ejecuta los siguientes comandos:
+
+```bash
+ssh-keygen -f ~/.ssh/known_hosts -R 192.168.57.101
+ssh vagrant@192.168.57.101 -i .vagrant/machines/default/virtualbox/private_key
+```
+
+El primer comando elimina la clave antigua del host, y el segundo comando te permite conectarte al host y agregar la nueva clave a `known_hosts`. Después de ejecutar estos comandos, podrás ejecutar el playbook sin problemas.
+
+---
+
+## **Instalación y Configuración Manual de Icecast2** 🎛️
 
 1. **Instalar Icecast2**:
    ```bash
@@ -99,7 +335,7 @@ Antes de comenzar, asegúrate de tener instalados los siguientes componentes en 
 
 ---
 
-## **Instalación y Configuración de Ices2** 🎚️
+## **Instalación y Configuración Manual de Ices2** 🎚️
 
 1. **Instalar Ices2 y Vorbis Tools**:
    ```bash
@@ -137,7 +373,7 @@ Antes de comenzar, asegúrate de tener instalados los siguientes componentes en 
 
 ---
 
-## **Preparación de Archivos de Audio** 🎶
+## **Preparación Manual de Archivos de Audio** 🎶
 
 1. **Descargar archivos de audio**:
    - Descarga archivos `.mp3` desde fuentes legales como [Archive.org](https://archive.org/details/audio) o [Freesound](https://freesound.org/).
@@ -169,7 +405,7 @@ Antes de comenzar, asegúrate de tener instalados los siguientes componentes en 
 
 ---
 
-## **Automatización del Servicio Ices2** 🤖
+## **Automatización Manual del Servicio Ices2** 🤖
 
 1. **Crear un servicio systemd para Ices2**:
    Crea un archivo de servicio:

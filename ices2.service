@@ -1,0 +1,12 @@
+[Unit]
+Description=ices2 daemon
+After=icecast2.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/etc/ices2
+ExecStart=ices2 "/etc/ices2/ices-playlist.xml"
+
+[Install]
+WantedBy=multi-user.target

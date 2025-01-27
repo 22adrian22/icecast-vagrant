@@ -1,0 +1,177 @@
+---
+- name: Configurar servidor de streaming con Icecast2 e Ices2
+  hosts: all
+  become: yes  # Ejecutar tareas con privilegios de superusuario
+  tasks:
+
+    # Actualizar el sistema
+    - name: Actualizar el sistema
+      apt:
+        update_cache: yes
+        upgrade: dist
+      tags: update
+
+    # Instalar Icecast2 (manejar la pregunta de configuración de clave)
+    - name: Instalar Icecast2
+      debconf:
+        name: icecast2
+        question: icecast2/configure
+        value: "false"
+        vtype: boolean
+      tags: icecast2
+
+    - name: Instalar Icecast2 (paquete)
+      apt:
+        name: icecast2
+        state: present
+      tags: icecast2
+
+    # Copiar archivo de configuración de Icecast2
+    - name: Copiar icecast.xml
+      copy:
+        src: /vagrant/icecast.xml
+        dest: /etc/icecast2/icecast.xml
+        owner: root
+        group: root
+        mode: '0644'
+        force: yes  # Sobrescribir si ya existe
+        remote_src: yes  # Copiar desde la máquina remota
+      tags: icecast2
+
+    # Copiar archivo de configuración de Icecast2 (default)
+    - name: Copiar icecast2 (default)
+      copy:
+        src: /vagrant/icecast2
+        dest: /etc/default/icecast2
+        owner: root
+        group: root
+        mode: '0644'
+        force: yes  # Sobrescribir si ya existe
+        remote_src: yes  # Copiar desde la máquina remota
+      tags: icecast2
+
+    # Iniciar y habilitar el servicio Icecast2
+    - name: Iniciar servicio Icecast2
+      systemd:
+        name: icecast2
+        state: started
+        enabled: yes
+      tags: icecast2
+
+    # Instalar Ices2 y Vorbis Tools
+    - name: Instalar Ices2 y Vorbis Tools
+      apt:
+        name:
+          - ices2
+          - vorbis-tools
+        state: present
+      tags: ices2
+
+    # Crear directorio de configuración de Ices2
+    - name: Crear directorio /etc/ices2
+      file:
+        path: /etc/ices2
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags: ices2
+
+    # Copiar archivo de configuración de Ices2
+    - name: Copiar ices-playlist.xml
+      copy:
+        src: /vagrant/ices-playlist.xml
+        dest: /etc/ices2/ices-playlist.xml
+        owner: root
+        group: root
+        mode: '0644'
+        force: yes  # Sobrescribir si ya existe
+        remote_src: yes  # Copiar desde la máquina remota
+      tags: ices2
+
+    # Crear directorio de canciones
+    - name: Crear directorio de canciones
+      file:
+        path: /home/vagrant/canciones
+        state: directory
+        owner: vagrant
+        group: vagrant
+        mode: '0755'
+      tags: canciones
+
+    # Copiar archivos .ogg al directorio de canciones
+    - name: Copiar archivo1.ogg
+      copy:
+        src: /vagrant/archivo1.ogg
+        dest: /home/vagrant/canciones/archivo1.ogg
+        owner: vagrant
+        group: vagrant
+        mode: '0644'
+        force: yes
+        remote_src: yes  # Copiar desde la máquina remota
+      tags: canciones
+
+    - name: Copiar archivo2.ogg
+      copy:
+        src: /vagrant/archivo2.ogg
+        dest: /home/vagrant/canciones/archivo2.ogg
+        owner: vagrant
+        group: vagrant
+        mode: '0644'
+        force: yes
+        remote_src: yes  # Copiar desde la máquina remota
+      tags: canciones
+
+    - name: Copiar archivo3.ogg
+      copy:
+        src: /vagrant/archivo3.ogg
+        dest: /home/vagrant/canciones/archivo3.ogg
+        owner: vagrant
+        group: vagrant
+        mode: '0644'
+        force: yes
+        remote_src: yes  # Copiar desde la máquina remota
+      tags: canciones
+
+    - name: Copiar archivo4.ogg
+      copy:
+        src: /vagrant/archivo4.ogg
+        dest: /home/vagrant/canciones/archivo4.ogg
+        owner: vagrant
+        group: vagrant
+        mode: '0644'
+        force: yes
+        remote_src: yes  # Copiar desde la máquina remota
+      tags: canciones
+
+    # Generar lista de reproducción
+    - name: Generar lista de reproducción
+      shell: find /home/vagrant/canciones -name "*.ogg" > /home/vagrant/canciones/lista.txt
+      args:
+        creates: /home/vagrant/canciones/lista.txt  # Solo ejecutar si el archivo no existe
+      tags: canciones
+
+    # Copiar archivo de servicio de Ices2
+    - name: Copiar ices2.service
+      copy:
+        src: /vagrant/ices2.service
+        dest: /etc/systemd/system/ices2.service
+        owner: root
+        group: root
+        mode: '0644'
+        force: yes  # Sobrescribir si ya existe
+        remote_src: yes  # Copiar desde la máquina remota
+      tags: ices2
+
+    # Recargar systemd y habilitar Ices2
+    - name: Recargar systemd
+      systemd:
+        daemon_reload: yes
+      tags: ices2
+
+    - name: Iniciar servicio Ices2
+      systemd:
+        name: ices2
+        state: started
+        enabled: yes
+      tags: ices2
